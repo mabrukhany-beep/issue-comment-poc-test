@@ -1,0 +1,30 @@
+name: issue-comment-poc
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  poc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show event info
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Issue number: ${{ github.event.issue.number }}"
+          echo "Comment body: ${{ github.event.comment.body }}"
+          echo "Author association: ${{ github.event.comment.author_association }}"
+      
+      - name: Try to checkout PR
+        run: |
+          echo "Attempting to checkout PR #${{ github.event.issue.number }}"
+          # This would normally use: gh pr checkout ${{ github.event.issue.number }}
+          # But we'll just show the info for now
+      
+      - name: Show secrets availability
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "GITHUB_TOKEN available: ${{ secrets.GITHUB_TOKEN != '' }}"
+          echo "TOKEN length: ${#TOKEN}"
