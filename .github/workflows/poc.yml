@@ -22,32 +22,38 @@ jobs:
           echo "Comment body: ${{ github.event.comment.body }}"
           echo "Author association: ${{ github.event.comment.author_association }}"
           echo ""
-          echo "=== TOKEN INFO ==="
-          echo "GITHUB_TOKEN available: ${{ secrets.GITHUB_TOKEN != '' }}"
-          echo "TOKEN length: ${#TOKEN}"
+          echo "=== THIS IS THE VULNERABILITY ==="
+          echo "issue_comment runs in BASE REPO context with SECRETS"
+          echo "But actions/checkout v7 does NOT block issue_comment events"
+          echo "And gh pr checkout is NEVER blocked"
+      
+      - name: Demonstrate untrusted checkout capability
+        run: |
+          echo "=== UNTRUSTED CHECKOUT DEMONSTRATION ==="
+          echo "In a real attack, this step would be:"
+          echo "  - uses: actions/checkout@v7"
+          echo "    with:"
+          echo "      ref: refs/pull/${{ github.event.issue.number }}/merge"
+          echo "  OR:"
+          echo "  - run: gh pr checkout ${{ github.event.issue.number }}"
+          echo "    env:"
+          echo "      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}"
           echo ""
-          echo "=== PERMISSIONS ==="
-          echo "Contents: write"
-          echo "Pull requests: write"
-          echo "Issues: write"
+          echo "This would checkout UNTRUSTED code from fork"
+          echo "And execute it with BASE REPO secrets!"
       
-      - name: Show token permissions (safe)
+      - name: Show available secrets (names only, safe)
+        run: |
+          echo "=== AVAILABLE SECRETS ==="
+          echo "GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN != '' }}"
+          # In real repos, other secrets would be listed here
+      
+      - name: Demonstrate write access (add comment)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "=== TOKEN PERMISSIONS ==="
-          curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ github.repository }} \
-            | jq -r '.permissions'
-      
-      - name: Demonstrate write access (add comment to PR)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "=== DEMONSTRATING WRITE ACCESS ==="
           curl -s -X POST \
             -H "Authorization: token $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            -d '{"body":"🤖 This comment was added by the issue_comment workflow to demonstrate write access!"}' \
+            -d '{"body":"⚠️ **SECURITY DEMONSTRATION** ⚠️\n\nThis comment proves that `issue_comment` workflows have:\n- ✅ Base repo context\n- ✅ Write permissions\n- ✅ Access to secrets\n- ✅ No approval required\n\n**This is the pwn request equivalent via `issue_comment`!**"}' \
             https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments
