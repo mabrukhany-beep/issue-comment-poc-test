@@ -6,25 +6,54 @@ on:
 jobs:
   poc:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    
     steps:
       - name: Show event info
         run: |
+          echo "=== EVENT INFO ==="
           echo "Event name: ${{ github.event_name }}"
           echo "Repository: ${{ github.repository }}"
           echo "Actor: ${{ github.actor }}"
           echo "Issue number: ${{ github.event.issue.number }}"
           echo "Comment body: ${{ github.event.comment.body }}"
           echo "Author association: ${{ github.event.comment.author_association }}"
+          echo ""
+          echo "=== THIS IS THE VULNERABILITY ==="
+          echo "issue_comment runs in BASE REPO context with SECRETS"
+          echo "But actions/checkout v7 does NOT block issue_comment events"
+          echo "And gh pr checkout is NEVER blocked"
       
-      - name: Try to checkout PR
+      - name: Demonstrate untrusted checkout capability
         run: |
-          echo "Attempting to checkout PR #${{ github.event.issue.number }}"
-          # This would normally use: gh pr checkout ${{ github.event.issue.number }}
-          # But we'll just show the info for now
+          echo "=== UNTRUSTED CHECKOUT DEMONSTRATION ==="
+          echo "In a real attack, this step would be:"
+          echo "  - uses: actions/checkout@v7"
+          echo "    with:"
+          echo "      ref: refs/pull/${{ github.event.issue.number }}/merge"
+          echo "  OR:"
+          echo "  - run: gh pr checkout ${{ github.event.issue.number }}"
+          echo "    env:"
+          echo "      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}"
+          echo ""
+          echo "This would checkout UNTRUSTED code from fork"
+          echo "And execute it with BASE REPO secrets!"
       
-      - name: Show secrets availability
+      - name: Show available secrets (names only, safe)
+        run: |
+          echo "=== AVAILABLE SECRETS ==="
+          echo "GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN != '' }}"
+          # In real repos, other secrets would be listed here
+      
+      - name: Demonstrate write access (add comment)
         env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "GITHUB_TOKEN available: ${{ secrets.GITHUB_TOKEN != '' }}"
-          echo "TOKEN length: ${#TOKEN}"
+          curl -s -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -d '{"body":"⚠️ **SECURITY DEMONSTRATION** ⚠️\n\nThis comment proves that `issue_comment` workflows have:\n- ✅ Base repo context\n- ✅ Write permissions\n- ✅ Access to secrets\n- ✅ No approval required\n\n**This is the pwn request equivalent via `issue_comment`!**"}' \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments
